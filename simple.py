@@ -112,6 +112,24 @@ def handle_IP_request(packet, event):
             server = client_server_map[client_ip]
             log.info(f"found map between {client_ip} and {server['ip']}")
             
+            
+        #add flow mod to switch
+        msg = of.ofp_flow_mod()
+        msg.match = of.ofp_match.from_packet(packet, event.port)
+        msg.idle_timeout = 10
+        msg.hard_timeout = 30
+        msg.actions.append(of.ofp_action_dl_addr.set_src(EthAddr(server["mac"])))
+        msg.actions.append(of.ofp_action_dl_addr.set_dst(packet.src))
+        msg.actions.append(of.ofp_action_nw_addr.set_src(IPAddr(virtual_ip)))
+        msg.actions.append(of.ofp_action_nw_addr.set_dst(IPAddr(client_ip)))
+        msg.actions.append(of.ofp_action_output(port=server["port"]))
+        
+        log.debug(f"Sending flow mod: {msg}")
+        event.connection.send(msg) 
+        
+        
+        
+            
     else:
         log.info("not for me!")
     
