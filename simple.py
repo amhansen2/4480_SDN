@@ -84,8 +84,9 @@ def handle_IP_request(packet, event):
             server = servers[server_index]
             client_server_map[client_ip] = server
 
-            # Store server port if not already mapped
-            server_ports[server['ip']] = event.port  
+            # Store server port only if not already mapped
+            if server['ip'] not in server_ports:
+                server_ports[server['ip']] = event.port  
 
             server_index = (server_index + 1) % len(servers)
 
@@ -93,32 +94,36 @@ def handle_IP_request(packet, event):
             server = client_server_map[client_ip]
 
         server_ip = server['ip']
-        # use stored server port
-        server_port = server_ports.get(server_ip, event.port)  
 
-        # Add forward rule
+        #  Use stored ports
+        server_port = server_ports.get(server_ip, event.port)  
+        client_port = event.port
+
+        # 💡 Add forward rule (client → server)
         msg = of.ofp_flow_mod()
         msg.match.dl_type = 0x0800
         msg.match.nw_src = IPAddr(client_ip)
         msg.match.nw_dst = IPAddr(virtual_ip)
-        msg.match.in_port = event.port
+        msg.match.in_port = client_port  
 
-        # Modify destination and forward to server port
         msg.actions.append(of.ofp_action_nw_addr.set_dst(IPAddr(server_ip)))
         msg.actions.append(of.ofp_action_output(port=server_port))  
+        
+        log.info(f"Forward flow: {client_ip} → {server_ip} via {server_port}")
         event.connection.send(msg)
 
-        # Add reverse rule
-        msg = of.ofp_flow_mod()
-        msg.match.dl_type = 0x0800
-        msg.match.nw_src = IPAddr(server_ip)
-        msg.match.nw_dst = IPAddr(client_ip)
-        msg.match.in_port = server_port  
+        # 💡 Add reverse rule (server → client)
+        reverse_msg = of.ofp_flow_mod()
+        reverse_msg.match.dl_type = 0x0800
+        reverse_msg.match.nw_src = IPAddr(server_ip)
+        reverse_msg.match.nw_dst = IPAddr(client_ip)
+        reverse_msg.match.in_port = server_port  
 
-        # Modify source and send back to client port
-        msg.actions.append(of.ofp_action_nw_addr.set_src(IPAddr(virtual_ip)))
-        msg.actions.append(of.ofp_action_output(port=event.port))  
-        event.connection.send(msg)
+        reverse_msg.actions.append(of.ofp_action_nw_addr.set_src(IPAddr(virtual_ip)))
+        reverse_msg.actions.append(of.ofp_action_output(port=client_port))  
+        
+        log.info(f"Reverse flow: {server_ip} → {client_ip} via {client_port}")
+        event.connection.send(reverse_msg)
 
 
     
