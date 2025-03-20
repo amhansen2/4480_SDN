@@ -88,6 +88,32 @@ def handle_IP_request(packet, event):
     ip_packet = packet.find('ipv4')
     log.info(f"IP Packet: {ip_packet}")
     
+   
+    if ip_packet.dstip == virtual_ip:
+        client_ip = str(ip_packet.srcip)
+        log.info(f"Client IP = {client_ip}")
+        
+        log.info(f"Checking to see if client {client_ip} is already mapped")
+        
+        # Choose a server if not already mapped
+        if client_ip not in client_server_map:
+            server = servers[server_index]
+            client_server_map[client_ip] = server
+            
+            # Switch to next server
+            if server_index == 0:
+                server_index = 1
+            else:
+                server_index = 0
+                
+            log.info(f"not found, creating a map from {client_ip} to {server['ip']}")
+                
+        else:
+            server = client_server_map[client_ip]
+            log.info(f"found map between {client_ip} and {server['ip']}")
+            
+    else:
+        log.info("not for me!")
     
 
 def launch():
