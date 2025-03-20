@@ -26,7 +26,6 @@ host_ports = {
 
 def handle_packet_in(event):
     packet = event.parsed
-    log.info(f"Received Packet: {packet}")
     
     if not packet.parsed:
         return
@@ -43,6 +42,9 @@ def handle_arp_request(packet, event):
     arp_packet = packet.find('arp')
     if arp_packet is None:
         return
+    
+    log.info(f"ARP Packet: {arp_packet}")
+
 
     client_ip = str(arp_packet.protosrc)
 
@@ -50,12 +52,18 @@ def handle_arp_request(packet, event):
         
         if client_ip not in client_server_map:
             server = servers[server_index]
+            log.info(f"Selecting server: {server}")
+
             client_server_map[client_ip] = server
 
             # Switch to next server (round-robin)
             server_index = (server_index + 1) % len(servers)
         else:
             server = client_server_map[client_ip]
+            log.info(f"Already mapped to server: {server}")
+
+            
+            
 
         # Send ARP reply with the virtual IP
         arp_reply = arp()
@@ -79,7 +87,8 @@ def handle_arp_request(packet, event):
 
 def handle_IP_request(packet, event):
     ip_packet = packet.find('ipv4')
-    
+    log.info(f"IPV4 Packet: {ip_packet}")
+
     if ip_packet and ip_packet.dstip == virtual_ip:
         client_ip = str(ip_packet.srcip)
 
