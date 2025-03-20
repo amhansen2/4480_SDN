@@ -5,18 +5,28 @@ from pox.lib.packet import ethernet, arp
 
 log = core.getLogger()
 
+# Define the server IPs, MAC addresses, and manual port assignments
 servers = [
-    {"ip": "10.0.0.5", "mac": "00:00:00:00:00:05"},
-    {"ip": "10.0.0.6", "mac": "00:00:00:00:00:06"}
+    {"ip": "10.0.0.5", "mac": "00:00:00:00:00:05", "port": 5},
+    {"ip": "10.0.0.6", "mac": "00:00:00:00:00:06", "port": 6}
 ]
 virtual_ip = "10.0.0.10"
 server_index = 0
 client_server_map = {}
-server_ports = {}  
+
+# Manually set the port mappings (based on Mininet or your topology)
+host_ports = {
+    "10.0.0.1": 1,  # h1
+    "10.0.0.2": 2,  # h2
+    "10.0.0.3": 3,  # h3
+    "10.0.0.4": 4,  # h4
+    "10.0.0.5": 5,  # h5
+    "10.0.0.6": 6   # h6
+}
 
 def handle_packet_in(event):
     packet = event.parsed
-    log.info(f"Recieved Packet: {packet}")
+    log.info(f"Received Packet: {packet}")
     
     if not packet.parsed:
         return
@@ -26,8 +36,6 @@ def handle_packet_in(event):
         
     elif packet.type == packet.IP_TYPE:
         handle_IP_request(packet, event)
-        
-
 
 def handle_arp_request(packet, event):
     global server_index
@@ -44,16 +52,12 @@ def handle_arp_request(packet, event):
             server = servers[server_index]
             client_server_map[client_ip] = server
 
-            # Store the server port
-            server_ports[server['ip']] = event.port  
-            
-            # Switch to next server
+            # Switch to next server (round-robin)
             server_index = (server_index + 1) % len(servers)
-
         else:
             server = client_server_map[client_ip]
 
-        # Send ARP reply
+        # Send ARP reply with the virtual IP
         arp_reply = arp()
         arp_reply.hwsrc = EthAddr(server["mac"])
         arp_reply.hwdst = arp_packet.hwsrc
@@ -73,7 +77,6 @@ def handle_arp_request(packet, event):
         
         event.connection.send(message)
 
-
 def handle_IP_request(packet, event):
     ip_packet = packet.find('ipv4')
     
@@ -84,22 +87,17 @@ def handle_IP_request(packet, event):
             server = servers[server_index]
             client_server_map[client_ip] = server
 
-            # Store server port only if not already mapped
-            if server['ip'] not in server_ports:
-                server_ports[server['ip']] = event.port  
-
+            # Switch to the next server (round-robin)
             server_index = (server_index + 1) % len(servers)
 
         else:
             server = client_server_map[client_ip]
 
         server_ip = server['ip']
+        server_port = server["port"]  # Use the port that is associated with the server
+        client_port = host_ports.get(client_ip, event.port)  # Get the port of the client from the host_ports mapping
 
-        #  Use stored ports
-        server_port = server_ports.get(server_ip, event.port)  
-        client_port = event.port
-
-        # Add forward rule (client → server)
+        # Add forward flow (client → server)
         msg = of.ofp_flow_mod()
         msg.match.dl_type = 0x0800
         msg.match.nw_src = IPAddr(client_ip)
@@ -112,7 +110,7 @@ def handle_IP_request(packet, event):
         log.info(f"Forward flow: {client_ip} → {server_ip} via {server_port}")
         event.connection.send(msg)
 
-        # Add reverse rule (server → client)
+        # Add reverse flow (server → client)
         reverse_msg = of.ofp_flow_mod()
         reverse_msg.match.dl_type = 0x0800
         reverse_msg.match.nw_src = IPAddr(server_ip)
@@ -124,9 +122,6 @@ def handle_IP_request(packet, event):
         
         log.info(f"Reverse flow: {server_ip} → {client_ip} via {client_port}")
         event.connection.send(reverse_msg)
-
-
-    
 
 def launch():
     log.info("Starting Load Balancer")
