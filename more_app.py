@@ -67,6 +67,7 @@ def handle_arp_request(packet, event):
         arp_reply.protosrc = IPAddr(virtual_ip)
         arp_reply.protodst = arp_packet.protosrc
 
+        log.info(f"ARP REPLY: mac address for virtual server is {arp_reply.hwsrc}")
         eth_reply = ethernet()
         eth_reply.src = EthAddr(server["mac"])
         eth_reply.dst = packet.src
@@ -76,6 +77,8 @@ def handle_arp_request(packet, event):
         message = of.ofp_packet_out()
         message.data = eth_reply.pack()
         message.actions.append(of.ofp_action_output(port=event.port))
+        
+        log.debug(f"Sending flow mod: {message}")
         event.connection.send(message)
 
 
@@ -121,6 +124,7 @@ def handle_ip_packet(packet, event):
         message.actions.append(of.ofp_action_dl_addr.set_dst(EthAddr(backend['mac'])))
         # Send to correct server port
         message.actions.append(of.ofp_action_output(port=event.port))
+        log.debug(f"Sending flow mod: {message}")
         event.connection.send(message)
 
         # server to client flow rule
