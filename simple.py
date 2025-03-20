@@ -78,12 +78,22 @@ def handle_arp_request(packet, event):
         eth_reply.dst = packet.src
         eth_reply.type = ethernet.ARP_TYPE
         eth_reply.set_payload(arp_reply)
-
+        
+       
         message = of.ofp_packet_out()
         message.data = eth_reply.pack()
         message.actions.append(of.ofp_action_output(port=event.port))
         
         event.connection.send(message)
+        
+         # Install flow for ARP reply (forwarding ARP reply to the correct port)
+        flow_msg = of.ofp_flow_mod()
+        flow_msg.match.dl_type = 0x0806  # ARP packet type
+        flow_msg.match.nw_src = IPAddr(virtual_ip)
+        flow_msg.match.nw_dst = IPAddr(arp_packet.protosrc)
+        flow_msg.actions.append(of.ofp_action_output(port=event.port))
+        event.connection.send(flow_msg)
+
 
 def handle_IP_request(packet, event):
     ip_packet = packet.find('ipv4')
