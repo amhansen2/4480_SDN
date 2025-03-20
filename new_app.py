@@ -123,7 +123,7 @@ def handle_ip_packet(packet, event):
         message.actions.append(of.ofp_action_nw_addr.set_dst(IPAddr(backend['ip'])))
         message.actions.append(of.ofp_action_dl_addr.set_dst(EthAddr(backend['mac'])))
         # Send to correct server port
-        message.actions.append(of.ofp_action_output(port=server["port"]))
+        message.actions.append(of.ofp_action_output(port=backend["port"]))
         log.debug(f"Sending flow mod: {message}")
         event.connection.send(message)
 
