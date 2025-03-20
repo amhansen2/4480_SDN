@@ -24,7 +24,7 @@ def handle_packet_in(event):
         handle_arp_request(packet, event)
         
     elif packet.type == packet.IP_TYPE:
-       log.info("IP Packet")
+        handle_IP_request(packet, event)
         
 
 def handle_arp_request(packet, event):
@@ -80,7 +80,15 @@ def handle_arp_request(packet, event):
         
         log.debug(f"Sending message: {message}")
         event.connection.send(message)
+        
 
+def handle_IP_request(packet, event):
+    global server_index
+
+    ip_packet = packet.find('ipv4')
+    log.info(f"IP Packet: {ip_packet}")
+    
+    
 
 def launch():
     log.info("Starting Load Balancer")
