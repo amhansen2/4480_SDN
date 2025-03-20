@@ -34,6 +34,8 @@ class LoadBalancer(object):
         Handle ARP requests for the virtual IP.
         """
         arp_packet = packet.find('arp')
+        if not arp_packet:
+            return
 
         if arp_packet and arp_packet.opcode == arp_packet.REQUEST and arp_packet.protodst == virtual_ip:
             global server_index
