@@ -32,7 +32,7 @@ def handle_arp_request(packet, event):
 
     arp_packet = packet.find('arp')
     log.info(f"ARP Packet: {arp_packet}")
-    
+
     if arp_packet is None:
         return
 
@@ -59,7 +59,7 @@ def handle_arp_request(packet, event):
         arp_reply.opcode = arp.REPLY
         arp_reply.protosrc = IPAddr(virtual_ip)
         arp_reply.protodst = arp_packet.protosrc
-        
+
         eth_reply = ethernet()
         eth_reply.src = EthAddr(server["mac"])
         eth_reply.dst = packet.src
@@ -69,62 +69,85 @@ def handle_arp_request(packet, event):
         message = of.ofp_packet_out()
         message.data = eth_reply.pack()
         message.actions.append(of.ofp_action_output(port=event.port))
-        
+
         log.info(f"Sending ARP reply: {arp_reply}")
         event.connection.send(message)
 
-        # Install flow rule to handle future ARP requests directly
-        msg = of.ofp_flow_mod()
-        msg.match.dl_type = 0x0806  # ARP packets
-        msg.match.nw_dst = IPAddr(virtual_ip)
-        msg.actions.append(of.ofp_action_output(port=event.port))
-        
+        # Install ARP flow rule
+        arp_rule = of.ofp_flow_mod()
+        arp_rule.match.dl_type = 0x0806  # ARP packets
+        arp_rule.match.nw_dst = IPAddr(virtual_ip)
+        arp_rule.actions.append(of.ofp_action_output(port=event.port))
+
+        arp_rule.idle_timeout = 300
+        arp_rule.hard_timeout = 600
+
         log.info("Installing ARP flow rule")
-        event.connection.send(msg)
+        event.connection.send(arp_rule)
+
 
         
-
 def handle_IP_request(packet, event):
     global server_index
 
     ip_packet = packet.find('ipv4')
     log.info(f"IP Packet: {ip_packet}")
-    
+
     if ip_packet and ip_packet.dstip == virtual_ip:
         client_ip = str(ip_packet.srcip)
         log.info(f"Client IP = {client_ip}")
-        
+
         log.info(f"Checking to see if client {client_ip} is already mapped")
-        
+
         # Choose a server if not already mapped
         if client_ip not in client_server_map:
             server = servers[server_index]
             client_server_map[client_ip] = server
-            
+
             # Switch to next server
             server_index = (server_index + 1) % len(servers)
-            
-            log.info(f"not found, creating a map from {client_ip} to {server['ip']}")
-                
+
+            log.info(f"Not found, mapping {client_ip} to {server['ip']}")
+
         else:
             server = client_server_map[client_ip]
-            log.info(f"found map between {client_ip} and {server['ip']}")
+            log.info(f"Found map between {client_ip} and {server['ip']}")
 
-        # Add flow rules
+        # Add forward flow rule (client -> server)
         msg = of.ofp_flow_mod()
         msg.match.dl_type = 0x0800  # IP packets
         msg.match.nw_src = IPAddr(client_ip)
         msg.match.nw_dst = IPAddr(virtual_ip)
 
-        # Rewrite the destination to the real server IP
+        # Rewrite destination IP to the server's IP
         msg.actions.append(of.ofp_action_nw_addr.set_dst(IPAddr(server['ip'])))
-        msg.actions.append(of.ofp_action_output(port=event.port)) 
+        msg.actions.append(of.ofp_action_output(port=event.port))
 
-        log.info(f"Installing flow rule: {client_ip} -> {server['ip']}")
+        msg.idle_timeout = 300  # Keep the rule active for 5 minutes
+        msg.hard_timeout = 600
+
+        log.info(f"Installing forward flow rule: {client_ip} -> {server['ip']}")
         event.connection.send(msg)
 
+        # Add reverse flow rule (server -> client)
+        reverse_msg = of.ofp_flow_mod()
+        reverse_msg.match.dl_type = 0x0800  # IP packets
+        reverse_msg.match.nw_src = IPAddr(server['ip'])
+        reverse_msg.match.nw_dst = IPAddr(client_ip)
+
+        # Rewrite source IP back to virtual IP
+        reverse_msg.actions.append(of.ofp_action_nw_addr.set_src(IPAddr(virtual_ip)))
+        reverse_msg.actions.append(of.ofp_action_output(port=event.port))
+
+        reverse_msg.idle_timeout = 300
+        reverse_msg.hard_timeout = 600
+
+        log.info(f"Installing reverse flow rule: {server['ip']} -> {client_ip}")
+        event.connection.send(reverse_msg)
+
     else:
-        log.info("not for me!")
+        log.info("Packet is not for the virtual IP, ignoring.")
+
 
     
 

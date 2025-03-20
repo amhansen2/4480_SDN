@@ -6,10 +6,9 @@ from pox.lib.packet import ethernet, arp
 log = core.getLogger()
 
 servers = [
-    {"ip": "10.0.0.5", "mac": "00:00:00:00:00:05", "port": 1},
-    {"ip": "10.0.0.6", "mac": "00:00:00:00:00:06", "port": 2}
+    {"ip": "10.0.0.5", "mac": "00:00:00:00:00:05"},
+    {"ip": "10.0.0.6", "mac": "00:00:00:00:00:06"}
 ]
-
 virtual_ip = "10.0.0.10"
 server_index = 0
 client_server_map = {}
