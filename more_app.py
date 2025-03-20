@@ -6,8 +6,8 @@ from pox.lib.packet import ethernet, arp
 log = core.getLogger()
 
 servers = [
-    {"ip": "10.0.0.5", "mac": "00:00:00:00:00:05"},
-    {"ip": "10.0.0.6", "mac": "00:00:00:00:00:06"}
+    {"ip": "10.0.0.5", "mac": "00:00:00:00:00:05", "port": 1},
+    {"ip": "10.0.0.6", "mac": "00:00:00:00:00:06", "port": 2}
 ]
 
 virtual_ip = "10.0.0.10"
@@ -76,7 +76,7 @@ def handle_arp_request(packet, event):
 
         message = of.ofp_packet_out()
         message.data = eth_reply.pack()
-        message.actions.append(of.ofp_action_output(port=event.port))
+        message.actions.append(of.ofp_action_output(port=server["port"]))
         
         log.debug(f"Sending flow mod: {message}")
         event.connection.send(message)
@@ -123,7 +123,7 @@ def handle_ip_packet(packet, event):
         message.actions.append(of.ofp_action_nw_addr.set_dst(IPAddr(backend['ip'])))
         message.actions.append(of.ofp_action_dl_addr.set_dst(EthAddr(backend['mac'])))
         # Send to correct server port
-        message.actions.append(of.ofp_action_output(port=event.port))
+        message.actions.append(of.ofp_action_output(port=server["port"]))
         log.debug(f"Sending flow mod: {message}")
         event.connection.send(message)
 
