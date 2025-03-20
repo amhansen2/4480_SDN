@@ -118,6 +118,9 @@ def handle_IP_request(packet, event):
         msg.match.dl_type = 0x0800  # IP packets
         msg.match.nw_src = IPAddr(client_ip)
         msg.match.nw_dst = IPAddr(virtual_ip)
+        msg.match.in_port = event.port
+
+
 
         # Rewrite destination IP to the server's IP
         msg.actions.append(of.ofp_action_nw_addr.set_dst(IPAddr(server['ip'])))
@@ -134,10 +137,13 @@ def handle_IP_request(packet, event):
         reverse_msg.match.dl_type = 0x0800  # IP packets
         reverse_msg.match.nw_src = IPAddr(server['ip'])
         reverse_msg.match.nw_dst = IPAddr(client_ip)
+        reverse_msg.match.in_port = event.port
 
         # Rewrite source IP back to virtual IP
         reverse_msg.actions.append(of.ofp_action_nw_addr.set_src(IPAddr(virtual_ip)))
         reverse_msg.actions.append(of.ofp_action_output(port=event.port))
+        
+
 
         reverse_msg.idle_timeout = 300
         reverse_msg.hard_timeout = 600
