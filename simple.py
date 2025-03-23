@@ -14,15 +14,7 @@ virtual_ip = "10.0.0.10"
 server_index = 0
 client_server_map = {}
 
-# Manually set the port mappings (based on Mininet or your topology)
-host_ports = {
-    "10.0.0.1": 1,  # h1
-    "10.0.0.2": 2,  # h2
-    "10.0.0.3": 3,  # h3
-    "10.0.0.4": 4,  # h4
-    "10.0.0.5": 5,  # h5
-    "10.0.0.6": 6   # h6
-}
+
 
 def handle_packet_in(event):
     packet = event.parsed
@@ -84,11 +76,11 @@ def handle_arp_request(packet, event):
         message.data = eth_reply.pack()
         #message.actions.append(of.ofp_action_output(port=event.port))
         
-        server_port = host_ports.get(str(arp_packet.protodst))
+        server_port = server["port"]
         if server_port:
             message.actions.append(of.ofp_action_output(port=server_port))
         else:
-            log.warning(f"No port found for {arp_packet.protodst}")
+            log.warning(f"No port found for {server["mac"]}")
         
         event.connection.send(message)
         
