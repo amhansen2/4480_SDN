@@ -82,7 +82,13 @@ def handle_arp_request(packet, event):
        
         message = of.ofp_packet_out()
         message.data = eth_reply.pack()
-        message.actions.append(of.ofp_action_output(port=event.port))
+        #message.actions.append(of.ofp_action_output(port=event.port))
+        
+        server_port = host_ports.get(str(arp_packet.protodst))
+        if server_port:
+            message.actions.append(of.ofp_action_output(port=server_port))
+        else:
+            log.warning(f"No port found for {arp_packet.protodst}")
         
         event.connection.send(message)
         
@@ -91,6 +97,8 @@ def handle_arp_request(packet, event):
         flow_msg.match.dl_type = 0x0806  # ARP packet type
         flow_msg.match.nw_src = IPAddr(virtual_ip)
         flow_msg.match.nw_dst = IPAddr(arp_packet.protosrc)
+        
+        
         flow_msg.actions.append(of.ofp_action_output(port=event.port))
         event.connection.send(flow_msg)
 
@@ -114,14 +122,14 @@ def handle_IP_request(packet, event):
 
         server_ip = server['ip']
         server_port = server["port"]  # Use the port that is associated with the server
-        client_port = host_ports.get(client_ip, event.port)  # Get the port of the client from the host_ports mapping
+        client_port = 0
 
         # Add forward flow (client → server)
         msg = of.ofp_flow_mod()
         msg.match.dl_type = 0x0800
         msg.match.nw_src = IPAddr(client_ip)
         msg.match.nw_dst = IPAddr(virtual_ip)
-        msg.match.in_port = client_port  
+        msg.match.in_port = event.port #changed port from client_port to event.port  
 
         msg.actions.append(of.ofp_action_nw_addr.set_dst(IPAddr(server_ip)))
         msg.actions.append(of.ofp_action_output(port=server_port))  
