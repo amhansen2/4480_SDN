@@ -12,6 +12,13 @@ sudo apt-get install mininet
 git clone http://github.com/noxrepo/pox
 ```
 
+## my code
+```
+git clone https://github.com/amhansen2/4480_SDN.git
+mv simple.py ../pox/
+
+```
+
 ## Run commands
 ```
 sudo mn --topo single,6 --mac --controller remote,ip=127.0.0.1,port=6633 --switch ovsk,protocols=OpenFlow10
