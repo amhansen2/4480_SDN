@@ -14,7 +14,15 @@ virtual_ip = "10.0.0.10"
 server_index = 0
 client_server_map = {}
 
-
+# Manually set the port mappings (based on Mininet or your topology)
+host_ports = {
+    "10.0.0.1": 1,  # h1
+    "10.0.0.2": 2,  # h2
+    "10.0.0.3": 3,  # h3
+    "10.0.0.4": 4,  # h4
+    "10.0.0.5": 5,  # h5
+    "10.0.0.6": 6   # h6
+}
 
 def handle_packet_in(event):
     packet = event.parsed
@@ -71,16 +79,9 @@ def handle_arp_request(packet, event):
         eth_reply.type = ethernet.ARP_TYPE
         eth_reply.set_payload(arp_reply)
         
-       
         message = of.ofp_packet_out()
         message.data = eth_reply.pack()
-        #message.actions.append(of.ofp_action_output(port=event.port))
-        
-        server_port = server["port"]
-        if server_port:
-            message.actions.append(of.ofp_action_output(port=server_port))
-        else:
-            log.warning(f"No port found for server {server}")
+        message.actions.append(of.ofp_action_output(port=event.port))
         
         event.connection.send(message)
         
@@ -114,7 +115,7 @@ def handle_IP_request(packet, event):
 
         server_ip = server['ip']
         server_port = server["port"]  # Use the port that is associated with the server
-        client_port = 0
+        client_port = host_ports[client_ip]  # Use the port that is associated with the client
 
         # Add forward flow (client → server)
         msg = of.ofp_flow_mod()
