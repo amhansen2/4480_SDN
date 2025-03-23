@@ -80,7 +80,7 @@ def handle_arp_request(packet, event):
         if server_port:
             message.actions.append(of.ofp_action_output(port=server_port))
         else:
-            log.warning(f"No port found for {server["mac"]}")
+            log.warning(f"No port found for server {server}")
         
         event.connection.send(message)
         
