@@ -85,21 +85,14 @@ def handle_arp_request(packet, event):
         
         event.connection.send(message)
 
-        # Install flow rules based on opcode
-        if arp_packet.opcode == arp.REQUEST:
-            # Install flow for ARP request (client -> virtual IP)
-            flow_msg = of.ofp_flow_mod()
-            flow_msg.match.dl_type = 0x0806  # ARP packet type
-            flow_msg.match.nw_src = IPAddr(arp_packet.protosrc)  # Client IP
-            flow_msg.match.nw_dst = IPAddr(arp_packet.protodst)  # Virtual IP
+        
+        # Install flow for ARP request (client -> virtual IP)
+        flow_msg = of.ofp_flow_mod()
+        flow_msg.match.dl_type = 0x0806  # ARP packet type
+        flow_msg.match.nw_src = IPAddr(arp_packet.protosrc)  # Client IP
+        flow_msg.match.nw_dst = IPAddr(arp_packet.protodst)  # Virtual IP
 
-        elif arp_packet.opcode == arp.REPLY:
-            # Install flow for ARP reply (server -> client)
-            flow_msg = of.ofp_flow_mod()
-            flow_msg.match.dl_type = 0x0806  # ARP packet type
-            flow_msg.match.nw_src = IPAddr(arp_packet.protosrc)  # Server IP
-            flow_msg.match.nw_dst = IPAddr(arp_packet.protodst)  # Client IP
-
+        
         flow_msg.actions.append(of.ofp_action_output(port=event.port))
         event.connection.send(flow_msg)
 
@@ -130,10 +123,10 @@ def handle_IP_request(packet, event):
         msg.match.dl_type = 0x0800
         msg.match.nw_src = IPAddr(client_ip)
         msg.match.nw_dst = IPAddr(virtual_ip)
-        msg.match.in_port = event.port #changed port from client_port to event.port  
+        #msg.match.in_port = event.port #changed port from client_port to event.port  
 
         msg.actions.append(of.ofp_action_nw_addr.set_dst(IPAddr(server_ip)))
-        msg.actions.append(of.ofp_action_output(port=server_port))  
+        #msg.actions.append(of.ofp_action_output(port=server_port))  
         
         log.info(f"Forward flow: {client_ip} → {server_ip} via {server_port}")
         event.connection.send(msg)
@@ -143,10 +136,10 @@ def handle_IP_request(packet, event):
         reverse_msg.match.dl_type = 0x0800
         reverse_msg.match.nw_src = IPAddr(server_ip)
         reverse_msg.match.nw_dst = IPAddr(client_ip)
-        reverse_msg.match.in_port = server_port  
+        #reverse_msg.match.in_port = server_port  
 
         reverse_msg.actions.append(of.ofp_action_nw_addr.set_src(IPAddr(virtual_ip)))
-        reverse_msg.actions.append(of.ofp_action_output(port=client_port))  
+        #reverse_msg.actions.append(of.ofp_action_output(port=client_port))  
         
         log.info(f"Reverse flow: {server_ip} → {client_ip} via {client_port}")
         event.connection.send(reverse_msg)
