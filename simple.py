@@ -48,9 +48,6 @@ def handle_arp_request(packet, event):
 
     client_ip = str(arp_packet.protosrc)
 
-    # Clear existing flows to prevent conflicts
-    clear_flows = of.ofp_flow_mod(command=of.OFPFC_DELETE)
-    event.connection.send(clear_flows)
 
     if arp_packet.opcode == arp.REQUEST and str(arp_packet.protodst) == virtual_ip:
         
@@ -84,7 +81,7 @@ def handle_arp_request(packet, event):
         
         message = of.ofp_packet_out()
         message.data = eth_reply.pack()
-        message.actions.append(of.ofp_action_output(port=event.port))
+        message.actions.append(of.ofp_action_output(port=server["port"]))
         
         event.connection.send(message)
 
@@ -103,7 +100,7 @@ def handle_arp_request(packet, event):
             flow_msg.match.nw_src = IPAddr(arp_packet.protosrc)  # Server IP
             flow_msg.match.nw_dst = IPAddr(arp_packet.protodst)  # Client IP
 
-        flow_msg.actions.append(of.ofp_action_output(port=event.port))
+        flow_msg.actions.append(of.ofp_action_output(port=server["port"]))
         event.connection.send(flow_msg)
 
 
