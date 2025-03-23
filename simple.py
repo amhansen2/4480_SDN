@@ -70,8 +70,8 @@ def handle_arp_request(packet, event):
         arp_reply.hwsrc = EthAddr(server["mac"])
         arp_reply.hwdst = arp_packet.hwsrc
         arp_reply.opcode = arp.REPLY
-        arp_reply.protosrc = IPAddr(virtual_ip)
-        arp_reply.protodst = arp_packet.protosrc
+        arp_reply.protosrc = arp_packet.protodst   # Set source to the target (server IP)
+        arp_reply.protodst = arp_packet.protosrc   # Set target to the source (client IP)
         
         eth_reply = ethernet()
         eth_reply.src = EthAddr(server["mac"])
