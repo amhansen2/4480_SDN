@@ -35,6 +35,8 @@ def handle_packet_in(event):
         
     elif packet.type == packet.IP_TYPE:
         handle_IP_request(packet, event)
+
+
 def handle_arp_request(packet, event):
     global server_index
 
@@ -45,6 +47,10 @@ def handle_arp_request(packet, event):
     log.info(f"ARP Packet: {arp_packet}")
 
     client_ip = str(arp_packet.protosrc)
+
+    # Clear existing flows to prevent conflicts
+    clear_flows = of.ofp_flow_mod(command=of.OFPFC_DELETE)
+    event.connection.send(clear_flows)
 
     if arp_packet.opcode == arp.REQUEST and str(arp_packet.protodst) == virtual_ip:
         
@@ -60,13 +66,13 @@ def handle_arp_request(packet, event):
             server = client_server_map[client_ip]
             log.info(f"Already mapped to server: {server}")
 
-        # Construct the ARP reply with corrected source and destination
+        # Construct the ARP reply with the corrected source and target
         arp_reply = arp()
         arp_reply.hwsrc = EthAddr(server["mac"])
         arp_reply.hwdst = arp_packet.hwsrc
         arp_reply.opcode = arp.REPLY
 
-        # Swap the source and destination IPs for correct ARP mapping
+        # Correct ARP reply direction
         arp_reply.protosrc = arp_packet.protodst  # Server IP (target)
         arp_reply.protodst = arp_packet.protosrc  # Client IP (source)
 
@@ -81,13 +87,22 @@ def handle_arp_request(packet, event):
         message.actions.append(of.ofp_action_output(port=event.port))
         
         event.connection.send(message)
-        
-        # Install flow for ARP reply with corrected matching
-        flow_msg = of.ofp_flow_mod()
-        flow_msg.match.dl_type = 0x0806  # ARP packet type
-        flow_msg.match.nw_src = IPAddr(arp_packet.protodst)  # Server IP
-        flow_msg.match.nw_dst = IPAddr(arp_packet.protosrc)  # Client IP
-        
+
+        # Install flow rules based on opcode
+        if arp_packet.opcode == arp.REQUEST:
+            # Install flow for ARP request (client -> virtual IP)
+            flow_msg = of.ofp_flow_mod()
+            flow_msg.match.dl_type = 0x0806  # ARP packet type
+            flow_msg.match.nw_src = IPAddr(arp_packet.protosrc)  # Client IP
+            flow_msg.match.nw_dst = IPAddr(arp_packet.protodst)  # Virtual IP
+
+        elif arp_packet.opcode == arp.REPLY:
+            # Install flow for ARP reply (server -> client)
+            flow_msg = of.ofp_flow_mod()
+            flow_msg.match.dl_type = 0x0806  # ARP packet type
+            flow_msg.match.nw_src = IPAddr(arp_packet.protosrc)  # Server IP
+            flow_msg.match.nw_dst = IPAddr(arp_packet.protodst)  # Client IP
+
         flow_msg.actions.append(of.ofp_action_output(port=event.port))
         event.connection.send(flow_msg)
 
