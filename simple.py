@@ -81,7 +81,7 @@ def handle_arp_request(packet, event):
         
         message = of.ofp_packet_out()
         message.data = eth_reply.pack()
-        message.actions.append(of.ofp_action_output(port=server["port"]))
+        message.actions.append(of.ofp_action_output(port=event.port))
         
         event.connection.send(message)
 
@@ -100,7 +100,7 @@ def handle_arp_request(packet, event):
             flow_msg.match.nw_src = IPAddr(arp_packet.protosrc)  # Server IP
             flow_msg.match.nw_dst = IPAddr(arp_packet.protodst)  # Client IP
 
-        flow_msg.actions.append(of.ofp_action_output(port=server["port"]))
+        flow_msg.actions.append(of.ofp_action_output(port=event.port))
         event.connection.send(flow_msg)
 
 
