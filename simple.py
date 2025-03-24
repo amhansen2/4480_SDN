@@ -91,12 +91,12 @@ def handle_arp_request(packet, event):
         arp_reply.hwsrc = arp_packet.hwsrc
         arp_reply.hwdst = EthAddr(server["mac"])
         arp_reply.opcode = arp.REPLY
-        # Correct ARP reply direction
-        arp_reply.protosrc = arp_packet.protosrc  # Server IP (target)
-        arp_reply.protodst = server["ip"] # Client IP (source)
 
+        arp_reply.protosrc = arp_packet.protosrc  
+        arp_reply.protodst = server["ip"]
+        
         eth_reply = ethernet()
-        eth_reply.src = packet.hwsrc
+        eth_reply.src = packet.src
         eth_reply.dst = EthAddr(server["mac"])
         eth_reply.type = ethernet.ARP_TYPE
         eth_reply.set_payload(arp_reply)
