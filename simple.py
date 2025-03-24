@@ -63,8 +63,6 @@ def handle_arp_request(packet, event):
             server = client_server_map[client_ip]
             log.info(f"Already mapped to server: {server}")
 
-
-
         # Construct the ARP reply with the corrected source and target
         arp_reply = arp()
         arp_reply.hwsrc = EthAddr(server["mac"])
@@ -86,8 +84,6 @@ def handle_arp_request(packet, event):
         message.actions.append(of.ofp_action_output(port=event.port))
         
         event.connection.send(message)
-        
-        log.info(f"Responded to {arp_packet.protosrc}: mac address is {server['mac']}")
         
         
     
@@ -111,6 +107,7 @@ def handle_arp_request(packet, event):
         
         # event.connection.send(message_return)
 
+
         
         # Install flow for ARP request (client -> virtual IP)
         # flow_msg = of.ofp_flow_mod()
@@ -118,6 +115,7 @@ def handle_arp_request(packet, event):
         # flow_msg.match.nw_src = IPAddr(arp_packet.protosrc)  # Client IP
         # flow_msg.match.nw_dst = IPAddr(arp_packet.protodst)  # Virtual IP
 
+        
         # flow_msg.actions.append(of.ofp_action_output(port=event.port))
         # event.connection.send(flow_msg)
 
