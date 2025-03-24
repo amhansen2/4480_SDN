@@ -3,7 +3,6 @@ CS 4480 Spring 2025- Programming Assignment 2. Simple OpenFlow application using
 
 ## install mn
 ```
-sudo apt-get update
 sudo apt-get install mininet
 ```
 

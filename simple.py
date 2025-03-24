@@ -81,6 +81,7 @@ def handle_arp_request(packet, event):
         
         message = of.ofp_packet_out()
         message.data = eth_reply.pack()
+        ##message.in_port = event.port
         message.actions.append(of.ofp_action_output(port=event.port))
         
         event.connection.send(message)
