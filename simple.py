@@ -68,14 +68,36 @@ def handle_arp_request(packet, event):
         arp_reply.hwsrc = EthAddr(server["mac"])
         arp_reply.hwdst = arp_packet.hwsrc
         arp_reply.opcode = arp.REPLY
-
         # Correct ARP reply direction
         arp_reply.protosrc = arp_packet.protodst  # Server IP (target)
         arp_reply.protodst = arp_packet.protosrc  # Client IP (source)
 
         eth_reply = ethernet()
         eth_reply.src = EthAddr(server["mac"])
-        eth_reply.dst = packet.src
+        eth_reply.dst = arp_packet.src
+        eth_reply.type = ethernet.ARP_TYPE
+        eth_reply.set_payload(arp_reply)
+        
+        message = of.ofp_packet_out()
+        message.data = eth_reply.pack()
+        ##message.in_port = event.port
+        message.actions.append(of.ofp_action_output(port=event.port))
+        
+        event.connection.send(message)
+        
+        
+        # Construct ARP mapping for the server
+        arp_reply = arp()
+        arp_reply.hwsrc = arp_packet.hwsrc
+        arp_reply.hwdst = EthAddr(server["mac"])
+        arp_reply.opcode = arp.REPLY
+        # Correct ARP reply direction
+        arp_reply.protosrc = arp_packet.protosrc  # Server IP (target)
+        arp_reply.protodst = server["ip"] # Client IP (source)
+
+        eth_reply = ethernet()
+        eth_reply.src = arp_packet.hwsrc
+        eth_reply.dst = EthAddr(server["mac"])
         eth_reply.type = ethernet.ARP_TYPE
         eth_reply.set_payload(arp_reply)
         
