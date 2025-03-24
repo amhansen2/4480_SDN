@@ -96,7 +96,7 @@ def handle_arp_request(packet, event):
         arp_return.protodst = virtual_ip #IPAddr(server["ip"])       
 
         eth_return = ethernet()
-        eth_return.src = EthAddr(server["mac"])  #packet.src
+        eth_return.src = packet.src
         eth_return.dst = EthAddr(server["mac"])          
         eth_return.type = ethernet.ARP_TYPE
         eth_return.set_payload(arp_return)
