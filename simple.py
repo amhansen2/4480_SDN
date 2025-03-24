@@ -103,7 +103,7 @@ def handle_arp_request(packet, event):
 
         message_return = of.ofp_packet_out()
         message_return.data = eth_return.pack()
-        message_return.actions.append(of.ofp_action_output(server["port"]))
+        message_return.actions.append(of.ofp_action_output(port=server["port"]))
         message_return.actions.append(of.ofp_action_hw_addr.set_dst(arp_packet.hwsrc))
 
         event.connection.send(message_return)
