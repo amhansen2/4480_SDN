@@ -87,7 +87,7 @@ def handle_arp_request(packet, event):
         
         
     
-        # Construct the ARP reply for the server
+        # Construct the ARP mapping for the server
         arp_return = arp()
         arp_return.hwsrc = arp_packet.hwsrc
         arp_return.hwdst = EthAddr(server["mac"])        
@@ -103,9 +103,8 @@ def handle_arp_request(packet, event):
 
         message_return = of.ofp_packet_out()
         message_return.data = eth_return.pack()
-        message_return.actions.append(of.ofp_action_output(port=server["port"]))
-        message_return.actions.append(of.ofp_action_hw_addr.set_dst(arp_packet.hwsrc))
-
+        message_return.actions.append(of.ofp_action_output(port=of.OFPP_FLOOD))
+        
         event.connection.send(message_return)
 
 
@@ -168,6 +167,9 @@ def handle_IP_request(packet, event):
         
         log.info(f"Reverse flow: {server_ip} → {client_ip} via {client_port}")
         event.connection.send(reverse_msg)
+
+
+
 
 def launch():
     log.info("Starting Load Balancer")
