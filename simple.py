@@ -113,13 +113,13 @@ def handle_arp_request(packet, event):
 
         
         # Install flow for ARP request (client -> virtual IP)
-        flow_msg = of.ofp_flow_mod()
-        flow_msg.match.dl_type = 0x0806  # ARP packet type
-        flow_msg.match.nw_src = IPAddr(arp_packet.protosrc)  # Client IP
-        flow_msg.match.nw_dst = IPAddr(arp_packet.protodst)  # Virtual IP
+        # flow_msg = of.ofp_flow_mod()
+        # flow_msg.match.dl_type = 0x0806  # ARP packet type
+        # flow_msg.match.nw_src = IPAddr(arp_packet.protosrc)  # Client IP
+        # flow_msg.match.nw_dst = IPAddr(arp_packet.protodst)  # Virtual IP
 
-        flow_msg.actions.append(of.ofp_action_output(port=event.port))
-        event.connection.send(flow_msg)
+        # flow_msg.actions.append(of.ofp_action_output(port=event.port))
+        # event.connection.send(flow_msg)
 
 
 def handle_IP_request(packet, event):
