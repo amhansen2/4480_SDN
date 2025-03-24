@@ -86,27 +86,28 @@ def handle_arp_request(packet, event):
         event.connection.send(message)
         
         
-        # Construct ARP mapping for the server
-        arp_reply = arp()
-        arp_reply.hwsrc = arp_packet.hwsrc
-        arp_reply.hwdst = EthAddr(server["mac"])
-        arp_reply.opcode = arp.REPLY
+    
 
-        arp_reply.protosrc = arp_packet.protosrc  
-        arp_reply.protodst = server["ip"]
         
-        eth_reply = ethernet()
-        eth_reply.src = packet.src
-        eth_reply.dst = EthAddr(server["mac"])
-        eth_reply.type = ethernet.ARP_TYPE
-        eth_reply.set_payload(arp_reply)
-        
-        message = of.ofp_packet_out()
-        message.data = eth_reply.pack()
-        ##message.in_port = event.port
-        message.actions.append(of.ofp_action_output(port=event.port))
-        
-        event.connection.send(message)
+        arp_return = arp()
+        arp_return.hwsrc = arp_packet.hwsrc
+        arp_return.hwdst = EthAddr(server["mac"])         # Server MAC
+        arp_return.opcode = arp.REPLY
+        arp_return.protosrc =  arp_packet.protosrc        # returned IP
+        arp_return.protodst = IPAddr(server["ip"])        # Server IP
+
+        eth_return = ethernet()
+        eth_return.src = packet.src
+        eth_return.dst = EthAddr(server["mac"])           # Server MAC
+        eth_return.type = ethernet.ARP_TYPE
+        eth_return.set_payload(arp_return)
+
+        message_return = of.ofp_packet_out()
+        message_return.data = eth_return.pack()
+        message_return.actions.append(of.ofp_action_output(port=event.port))
+
+        event.connection.send(message_return)
+
 
         
         # Install flow for ARP request (client -> virtual IP)
