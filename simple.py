@@ -47,77 +47,80 @@ def handle_arp_request(packet, event):
     log.info(f"ARP Packet: {arp_packet}")
 
     client_ip = str(arp_packet.protosrc)
+    target_ip = str(arp_packet.protodst)
 
+    # Handle ARP requests for the virtual IP
+    if arp_packet.opcode == arp.REQUEST:
+        if target_ip == virtual_ip:
+            # Client requesting the virtual IP
+            if client_ip not in client_server_map:
+                server = servers[server_index]
+                client_server_map[client_ip] = server
+                server_index = (server_index + 1) % len(servers)
+            else:
+                server = client_server_map[client_ip]
 
-    if arp_packet.opcode == arp.REQUEST and str(arp_packet.protodst) == virtual_ip:
-        
-        if client_ip not in client_server_map:
-            server = servers[server_index]
-            log.info(f"Selecting server: {server}")
+            log.info(f"Mapping {client_ip} → {server['ip']}")
 
-            client_server_map[client_ip] = server
+            # Send ARP reply to the client
+            send_arp_reply(event, packet, server["mac"])
 
-            # Switch to next server (round-robin)
-            server_index = (server_index + 1) % len(servers)
-        else:
+            # 🛠️ Also send ARP reply to the server
+            server_port = server["port"]
+            send_arp_reply_to_server(event, client_ip, packet.src, server_port)
+
+        # Handle ARP request from servers to clients
+        elif client_ip in client_server_map:
             server = client_server_map[client_ip]
-            log.info(f"Already mapped to server: {server}")
+            server_port = server["port"]
 
-        # Construct the ARP reply with the corrected source and target
-        arp_reply = arp()
-        arp_reply.hwsrc = EthAddr(server["mac"])
-        arp_reply.hwdst = arp_packet.hwsrc
-        arp_reply.opcode = arp.REPLY
-        # Correct ARP reply direction
-        arp_reply.protosrc = arp_packet.protodst  # Server IP (target)
-        arp_reply.protodst = arp_packet.protosrc  # Client IP (source)
+            # Send ARP reply to the server
+            send_arp_reply_to_server(event, client_ip, packet.src, server_port)
 
-        eth_reply = ethernet()
-        eth_reply.src = EthAddr(server["mac"])
-        eth_reply.dst = packet.src
-        eth_reply.type = ethernet.ARP_TYPE
-        eth_reply.set_payload(arp_reply)
-        
-        message = of.ofp_packet_out()
-        message.data = eth_reply.pack()
-        ##message.in_port = event.port
-        message.actions.append(of.ofp_action_output(port=event.port))
-        
-        event.connection.send(message)
-        
-        
+# Helper function to send ARP reply to the client
+def send_arp_reply(event, packet, server_mac):
+    arp_reply = arp()
+    arp_reply.hwsrc = EthAddr(server_mac)
+    arp_reply.hwdst = packet.src
+    arp_reply.opcode = arp.REPLY
+    arp_reply.protosrc = packet.find('arp').protodst
+    arp_reply.protodst = packet.find('arp').protosrc
+
+    eth_reply = ethernet()
+    eth_reply.src = EthAddr(server_mac)
+    eth_reply.dst = packet.src
+    eth_reply.type = ethernet.ARP_TYPE
+    eth_reply.set_payload(arp_reply)
+
+    msg = of.ofp_packet_out()
+    msg.data = eth_reply.pack()
+    msg.actions.append(of.ofp_action_output(port=event.port))
     
-        # Construct the ARP mapping for the server
-        # arp_return = arp()
-        # arp_return.hwsrc = arp_packet.hwsrc
-        # arp_return.hwdst = EthAddr(server["mac"])        
-        # arp_return.opcode = arp.REPLY
-        # arp_return.protosrc =  arp_packet.protosrc       
-        # arp_return.protodst = IPAddr(server["ip"])       
+    log.info(f"Sending ARP reply to client {arp_reply.protodst} → {arp_reply.protosrc}")
+    event.connection.send(msg)
 
-        # eth_return = ethernet()
-        # eth_return.src = packet.src
-        # eth_return.dst = EthAddr(server["mac"])          
-        # eth_return.type = ethernet.ARP_TYPE
-        # eth_return.set_payload(arp_return)
+# Helper function to send ARP reply to the server
+def send_arp_reply_to_server(event, client_ip, client_mac, server_port):
+    arp_reply = arp()
+    arp_reply.hwsrc = EthAddr(client_mac)
+    arp_reply.hwdst = EthAddr(client_mac)
+    arp_reply.opcode = arp.REPLY
+    arp_reply.protosrc = IPAddr(client_ip)
+    arp_reply.protodst = IPAddr(virtual_ip)
 
-        # message_return = of.ofp_packet_out()
-        # message_return.data = eth_return.pack()
-        # message_return.actions.append(of.ofp_action_output(port=of.OFPP_FLOOD))
-        
-        # event.connection.send(message_return)
+    eth_reply = ethernet()
+    eth_reply.src = EthAddr(client_mac)
+    eth_reply.dst = EthAddr(client_mac)
+    eth_reply.type = ethernet.ARP_TYPE
+    eth_reply.set_payload(arp_reply)
 
+    msg = of.ofp_packet_out()
+    msg.data = eth_reply.pack()
+    msg.actions.append(of.ofp_action_output(port=server_port))
+    
+    log.info(f"Sending ARP reply to server {arp_reply.protosrc} → {arp_reply.protodst}")
+    event.connection.send(msg)
 
-        
-        # Install flow for ARP request (client -> virtual IP)
-        # flow_msg = of.ofp_flow_mod()
-        # flow_msg.match.dl_type = 0x0806  # ARP packet type
-        # flow_msg.match.nw_src = IPAddr(arp_packet.protosrc)  # Client IP
-        # flow_msg.match.nw_dst = IPAddr(arp_packet.protodst)  # Virtual IP
-
-        
-        # flow_msg.actions.append(of.ofp_action_output(port=event.port))
-        # event.connection.send(flow_msg)
 
 
 def handle_IP_request(packet, event):
