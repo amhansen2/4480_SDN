@@ -74,7 +74,7 @@ def handle_arp_request(packet, event):
 
         eth_reply = ethernet()
         eth_reply.src = EthAddr(server["mac"])
-        eth_reply.dst = arp_packet.src
+        eth_reply.dst = packet.src
         eth_reply.type = ethernet.ARP_TYPE
         eth_reply.set_payload(arp_reply)
         
@@ -96,7 +96,7 @@ def handle_arp_request(packet, event):
         arp_reply.protodst = server["ip"] # Client IP (source)
 
         eth_reply = ethernet()
-        eth_reply.src = arp_packet.hwsrc
+        eth_reply.src = packet.hwsrc
         eth_reply.dst = EthAddr(server["mac"])
         eth_reply.type = ethernet.ARP_TYPE
         eth_reply.set_payload(arp_reply)
