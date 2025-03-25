@@ -156,6 +156,7 @@ def handle_arp_request(packet, event):
 
 
 def handle_IP_request(packet, event):
+    global server_index
     ip_packet = packet.find('ipv4')
     log.info(f"IPV4 Packet: {ip_packet}")
 
