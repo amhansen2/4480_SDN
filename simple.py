@@ -53,6 +53,8 @@ def handle_arp_request(packet, event):
     if str(arp_packet.protosrc) in [server["ip"] for server in servers]:
         log.info(f"ARP request from server: {arp_packet.protosrc} → {arp_packet.protodst}")
         
+        server = servers["ip" == arp_packet.protosrc]
+        
         # Construct the ARP reply for the server
         arp_return = arp()
         arp_return.hwsrc = arp_packet.hwsrc
@@ -73,9 +75,6 @@ def handle_arp_request(packet, event):
         
         event.connection.send(message_return)
         log.info(f"Sending ARP reply to server: {arp_reply.protosrc} → {arp_reply.protodst}")
-
-        
-        
         return
 
     # else this is from a client
