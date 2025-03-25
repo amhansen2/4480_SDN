@@ -15,14 +15,12 @@ server_index = 0
 client_server_map = {}
 
 # Manually set the port mappings (based on Mininet or your topology)
-host_ports = {
-    "10.0.0.1": 1,  # h1
-    "10.0.0.2": 2,  # h2
-    "10.0.0.3": 3,  # h3
-    "10.0.0.4": 4,  # h4
-    "10.0.0.5": 5,  # h5
-    "10.0.0.6": 6   # h6
-}
+hosts = [
+    {"ip": "10.0.0.1", "mac": "00:00:00:00:00:01", "port": 1},
+    {"ip": "10.0.0.2", "mac": "00:00:00:00:00:02", "port": 2},
+    {"ip": "10.0.0.3", "mac": "00:00:00:00:00:03", "port": 3},
+    {"ip": "10.0.0.4", "mac": "00:00:00:00:00:04", "port": 4}
+]
 
 def handle_packet_in(event):
     packet = event.parsed
@@ -54,17 +52,18 @@ def handle_arp_request(packet, event):
         log.info(f"ARP request from server: {arp_packet.protosrc} → {arp_packet.protodst}")
         
         server = servers["ip" == arp_packet.protosrc]
+        host = hosts["ip" == arp_packet.protodst]
         
        # Construct the ARP reply for the server
         arp_return = arp()
-        arp_return.hwsrc = EthAddr("00:00:00:00:00:01")   # Set MAC to 00:00:00:00:00:01
+        arp_return.hwsrc = EthAddr(host["mac"])   # Set MAC to 00:00:00:00:00:01
         arp_return.hwdst = arp_packet.hwsrc               # Destination MAC is the sender's MAC
         arp_return.opcode = arp.REPLY
-        arp_return.protosrc = IPAddr("10.0.0.1")          # Source IP is 10.0.0.1
+        arp_return.protosrc = IPAddr(host["ip"])          # Source IP is 10.0.0.1
         arp_return.protodst = arp_packet.protosrc         # Destination IP is the sender's IP (10.0.0.5)
 
         eth_return = ethernet()
-        eth_return.src = EthAddr("00:00:00:00:00:01")     # Use the same MAC as ARP source
+        eth_return.src = EthAddr(host["mac"])     # Use the same MAC as ARP source
         eth_return.dst = arp_packet.hwsrc                 # Send to the requester
         eth_return.type = ethernet.ARP_TYPE
         eth_return.set_payload(arp_return)
@@ -176,7 +175,7 @@ def handle_IP_request(packet, event):
 
         server_ip = server['ip']
         server_port = server["port"]  # Use the port that is associated with the server
-        client_port = host_ports[client_ip]  # Use the port that is associated with the client
+        client_port = hosts["ip" == client_ip]["port"]  # Use the port that is associated with the client
 
         # Add forward flow (client → server)
         msg = of.ofp_flow_mod()
