@@ -60,8 +60,8 @@ def handle_arp_request(packet, event):
         arp_return.hwsrc = arp_packet.hwsrc
         arp_return.hwdst = arp_packet.hwsrc     
         arp_return.opcode = arp.REPLY
-        arp_return.protosrc =  arp_packet.protosrc       
-        arp_return.protodst = virtual_ip #IPAddr(server["ip"])       
+        arp_return.protosrc = arp_packet.protosrc       
+        arp_return.protodst = IPAddr(virtual_ip) #IPAddr(server["ip"])       
 
         eth_return = ethernet()
         eth_return.src = packet.src
