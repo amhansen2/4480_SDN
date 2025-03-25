@@ -55,23 +55,24 @@ def handle_arp_request(packet, event):
         
         server = servers["ip" == arp_packet.protosrc]
         
-        # Construct the ARP reply for the server
+       # Construct the ARP reply for the server
         arp_return = arp()
-        arp_return.hwsrc = arp_packet.hwsrc
-        arp_return.hwdst = arp_packet.hwsrc     
+        arp_return.hwsrc = EthAddr("00:00:00:00:00:01")   # Set MAC to 00:00:00:00:00:01
+        arp_return.hwdst = arp_packet.hwsrc               # Destination MAC is the sender's MAC
         arp_return.opcode = arp.REPLY
-        arp_return.protosrc = arp_packet.protosrc       
-        arp_return.protodst = IPAddr(virtual_ip) #IPAddr(server["ip"])       
+        arp_return.protosrc = IPAddr("10.0.0.1")          # Source IP is 10.0.0.1
+        arp_return.protodst = arp_packet.protosrc         # Destination IP is the sender's IP (10.0.0.5)
 
         eth_return = ethernet()
-        eth_return.src = packet.src
-        eth_return.dst = EthAddr(server["mac"])          
+        eth_return.src = EthAddr("00:00:00:00:00:01")     # Use the same MAC as ARP source
+        eth_return.dst = arp_packet.hwsrc                 # Send to the requester
         eth_return.type = ethernet.ARP_TYPE
         eth_return.set_payload(arp_return)
 
         message_return = of.ofp_packet_out()
         message_return.data = eth_return.pack()
-        message_return.actions.append(of.ofp_action_output(port=server["port"]))
+        message_return.actions.append(of.ofp_action_output(port=event.port))  # Send out the port the request came from
+
         
         event.connection.send(message_return)
         log.info(f"Sending ARP reply to server: {arp_return.protosrc} → {arp_return.protodst}")
