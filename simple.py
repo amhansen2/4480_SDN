@@ -48,22 +48,22 @@ def handle_arp_request(packet, event):
 
     client_ip = str(arp_packet.protosrc)
     log.info(f"Source of the arp is {client_ip}")
+    
+    #If the arp is ffrom the server, flood so that the host can answer
+    if str(arp_packet.protosrc) in [server["ip"] for server in servers]:
+        log.info(f"ARP request from server: {arp_packet.protosrc} → {arp_packet.protodst}")
+        # Flood the ARP request to all hosts
+        message = of.ofp_packet_out()
+        message.data = packet.pack()
+        message.actions.append(of.ofp_action_output(port=of.OFPP_FLOOD))
+        event.connection.send(message)
+        log.info("Flooded ARP request to all hosts")
+        return
 
+    # else this is from a client
     if arp_packet.opcode == arp.REQUEST and str(arp_packet.protodst) == virtual_ip:
         
-        #If the arp is ffrom the server, flood so that the host can answer
-        if str(arp_packet.protosrc) in [server["ip"] for server in servers]:
-            log.info(f"ARP request from server: {arp_packet.protosrc} → {arp_packet.protodst}")
-            # Flood the ARP request to all hosts
-            message = of.ofp_packet_out()
-            message.data = packet.pack()
-            message.actions.append(of.ofp_action_output(port=of.OFPP_FLOOD))
-            event.connection.send(message)
-            log.info("Flooded ARP request to all hosts")
-            return
-        
-        
-        # else this is from a client, check to see if in map 
+        # see if we already have a mapping
         if client_ip not in client_server_map:
             server = servers[server_index]
             log.info(f"Selecting server: {server}")
