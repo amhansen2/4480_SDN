@@ -47,12 +47,12 @@ def handle_arp_request(packet, event):
     log.info(f"ARP Packet: {arp_packet}")
 
     client_ip = str(arp_packet.protosrc)
-
+    console.log(f"Source of the arp is {client_ip}")
 
     if arp_packet.opcode == arp.REQUEST and str(arp_packet.protodst) == virtual_ip:
         
         #If the arp is ffrom the server, flood so that the host can answer
-        if arp_packet.protosrc in [server["ip"] for server in servers]:
+        if str(arp_packet.protosrc) in [server["ip"] for server in servers]:
             log.info(f"ARP request from server: {arp_packet.protosrc} → {arp_packet.protodst}")
             # Flood the ARP request to all hosts
             message = of.ofp_packet_out()
