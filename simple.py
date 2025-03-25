@@ -74,7 +74,7 @@ def handle_arp_request(packet, event):
         message_return.actions.append(of.ofp_action_output(port=server["port"]))
         
         event.connection.send(message_return)
-        log.info(f"Sending ARP reply to server: {arp_reply.protosrc} → {arp_reply.protodst}")
+        log.info(f"Sending ARP reply to server: {arp_return.protosrc} → {arp_return.protodst}")
         return
 
     # else this is from a client
