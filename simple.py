@@ -47,7 +47,7 @@ def handle_arp_request(packet, event):
     log.info(f"ARP Packet: {arp_packet}")
 
     client_ip = str(arp_packet.protosrc)
-    console.log(f"Source of the arp is {client_ip}")
+    log.info(f"Source of the arp is {client_ip}")
 
     if arp_packet.opcode == arp.REQUEST and str(arp_packet.protodst) == virtual_ip:
         
