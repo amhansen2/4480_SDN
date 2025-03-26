@@ -97,7 +97,7 @@ def handle_arp_request(packet, event):
 
         event.connection.send(message_return)
         log.info(f"Sending ARP reply to server: {arp_return.protosrc} → {arp_return.protodst}")
-        return
+        
 
     # else this is from a client
     if arp_packet.opcode == arp.REQUEST and str(arp_packet.protodst) == virtual_ip:
@@ -137,6 +137,30 @@ def handle_arp_request(packet, event):
         event.connection.send(message)
         log.info(f"Sending ARP reply to client: {arp_reply.protosrc} to {arp_reply.protodst}")
         
+        # Add forward flow (client to server)
+        msg = of.ofp_flow_mod()
+        msg.match.dl_type = 0x0800
+        msg.match.nw_dst = IPAddr(virtual_ip)
+        msg.match.in_port = host["port"]  
+
+        msg.actions.append(of.ofp_action_nw_addr.set_dst(IPAddr(server["ip"])))
+        msg.actions.append(of.ofp_action_output(port=server["port"]))  
+        
+        log.info(f"Forward flow: {client_ip} to {server["ip"]} via {server["ip"]}")
+        event.connection.send(msg)
+
+        # Add reverse flow (server to client)
+        reverse_msg = of.ofp_flow_mod()
+        reverse_msg.match.dl_type = 0x0800
+        reverse_msg.match.nw_src = IPAddr(server["ip"])
+        reverse_msg.match.nw_dst = IPAddr(client_ip)
+        reverse_msg.match.in_port = server["port"]  
+
+        reverse_msg.actions.append(of.ofp_action_nw_addr.set_src(IPAddr(virtual_ip)))
+        reverse_msg.actions.append(of.ofp_action_output(port=host["port"]))  
+        
+        log.info(f"Reverse flow: {server["ip"]} to {client_ip} via {host["port"]}")
+        event.connection.send(reverse_msg)
 
 
 def handle_IP_request(packet, event):
