@@ -146,7 +146,7 @@ def handle_arp_request(packet, event):
         msg.actions.append(of.ofp_action_nw_addr.set_dst(IPAddr(server["ip"])))
         msg.actions.append(of.ofp_action_output(port=server["port"]))  
         
-        log.info(f"Forward flow: {client_ip} to {server["ip"]} via {server["ip"]}")
+        log.info(f"Forward flow: {client_ip} to {server['ip']} via {server['ip']}")
         event.connection.send(msg)
 
         # Add reverse flow (server to client)
@@ -159,7 +159,7 @@ def handle_arp_request(packet, event):
         reverse_msg.actions.append(of.ofp_action_nw_addr.set_src(IPAddr(virtual_ip)))
         reverse_msg.actions.append(of.ofp_action_output(port=host["port"]))  
         
-        log.info(f"Reverse flow: {server["ip"]} to {client_ip} via {host["port"]}")
+        log.info(f"Reverse flow: {server['ip']} to {client_ip} via {host['port']}")
         event.connection.send(reverse_msg)
 
 
