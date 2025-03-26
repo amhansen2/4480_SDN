@@ -5,16 +5,17 @@ from pox.lib.packet import ethernet, arp
 
 log = core.getLogger()
 
-# Define the server IPs, MAC addresses, and manual port assignments
+virtual_ip = "10.0.0.10"
+server_index = 0
+
+client_server_map = {}
+
 servers = [
     {"ip": "10.0.0.5", "mac": "00:00:00:00:00:05", "port": 5},
     {"ip": "10.0.0.6", "mac": "00:00:00:00:00:06", "port": 6}
 ]
-virtual_ip = "10.0.0.10"
-server_index = 0
-client_server_map = {}
 
-# Manually set the port mappings (based on Mininet or your topology)
+
 hosts = [
     {"ip": "10.0.0.1", "mac": "00:00:00:00:00:01", "port": 1},
     {"ip": "10.0.0.2", "mac": "00:00:00:00:00:02", "port": 2},
@@ -22,9 +23,17 @@ hosts = [
     {"ip": "10.0.0.4", "mac": "00:00:00:00:00:04", "port": 4}
 ]
 
+
+
 def handle_packet_in(event):
-    packet = event.parsed
+    '''
+    Handle incoming packets and pass to correct handler.
+   
+    Packets are either ARP or IP packets.
+    '''
     
+    packet = event.parsed
+
     if not packet.parsed:
         return
 
@@ -35,7 +44,17 @@ def handle_packet_in(event):
         handle_IP_request(packet, event)
 
 
+
+
 def handle_arp_request(packet, event):
+    '''
+    Handle ARP requests
+    
+    ARP requests are either from the client or the server.
+        - If from client: reply with the virtual IP and the MAC of the selected server
+        - If from server: reply with the client's IP and MAC   
+    '''
+    
     global server_index
 
     arp_packet = packet.find('arp')
@@ -47,11 +66,10 @@ def handle_arp_request(packet, event):
     client_ip = str(arp_packet.protosrc)
     log.info(f"Source of the arp is {client_ip}")
     
-    #If the arp is ffrom the server
+    # the arp request is from the server
     if str(arp_packet.protosrc) in [server["ip"] for server in servers]:
         log.info(f"ARP request from server: {arp_packet.protosrc} → {arp_packet.protodst}")
         
-        # ✅ Fixed dictionary access
         server = next((server for server in servers if server["ip"] == arp_packet.protosrc), None)
         host = next((host for host in hosts if host["ip"] == arp_packet.protodst), None)
 
@@ -59,17 +77,17 @@ def handle_arp_request(packet, event):
             log.warning("Server or host not found.")
             return
         
-       # Construct the ARP reply for the server
+        # Construct the ARP reply for the server
         arp_return = arp()
-        arp_return.hwsrc = EthAddr(host["mac"])   # Set MAC to 00:00:00:00:00:01
-        arp_return.hwdst = arp_packet.hwsrc               # Destination MAC is the sender's MAC
+        arp_return.hwsrc = EthAddr(host["mac"])     # reply is "from" the client
+        arp_return.hwdst = arp_packet.hwsrc         # to the server who sent the request        
         arp_return.opcode = arp.REPLY
-        arp_return.protosrc = IPAddr(host["ip"])          # Source IP is 10.0.0.1
-        arp_return.protodst = arp_packet.protosrc         # Destination IP is the sender's IP (10.0.0.5)
+        arp_return.protosrc = IPAddr(host["ip"])    # src is host ip
+        arp_return.protodst = arp_packet.protosrc   # to the server who sent the request        
 
         eth_return = ethernet()
-        eth_return.src = EthAddr(host["mac"])     # Use the same MAC as ARP source
-        eth_return.dst = arp_packet.hwsrc                 # Send to the requester
+        eth_return.src = EthAddr(host["mac"])       
+        eth_return.dst = arp_packet.hwsrc           
         eth_return.type = ethernet.ARP_TYPE
         eth_return.set_payload(arp_return)
 
@@ -77,7 +95,6 @@ def handle_arp_request(packet, event):
         message_return.data = eth_return.pack()
         message_return.actions.append(of.ofp_action_output(port=event.port))  # Send out the port the request came from
 
-        
         event.connection.send(message_return)
         log.info(f"Sending ARP reply to server: {arp_return.protosrc} → {arp_return.protodst}")
         return
@@ -98,13 +115,13 @@ def handle_arp_request(packet, event):
             server = client_server_map[client_ip]
             log.info(f"Already mapped to server: {server}")
 
-        # Construct the ARP reply with the corrected source and target
+        # arp reply to the client
         arp_reply = arp()
         arp_reply.hwsrc = EthAddr(server["mac"])
         arp_reply.hwdst = arp_packet.hwsrc
         arp_reply.opcode = arp.REPLY
-        arp_reply.protosrc = arp_packet.protodst  # Server IP (target)
-        arp_reply.protodst = arp_packet.protosrc  # Client IP (source)
+        arp_reply.protosrc = arp_packet.protodst  # server IP (target)
+        arp_reply.protodst = arp_packet.protosrc  # client IP (source)
 
         eth_reply = ethernet()
         eth_reply.src = EthAddr(server["mac"])
@@ -114,15 +131,20 @@ def handle_arp_request(packet, event):
         
         message = of.ofp_packet_out()
         message.data = eth_reply.pack()
-        ##message.in_port = event.port
+        #message.in_port = event.port
         message.actions.append(of.ofp_action_output(port=event.port))
         
         event.connection.send(message)
-        log.info(f"Sending ARP reply to client: {arp_reply.protosrc} → {arp_reply.protodst}")
+        log.info(f"Sending ARP reply to client: {arp_reply.protosrc} to {arp_reply.protodst}")
         
 
 
 def handle_IP_request(packet, event):
+    '''
+    Handle IPv4 packets
+        - Select the server based on the client IP and forward the packet to the server.
+        - Set up flows for the forward and reverse paths.
+    '''
     global server_index
     ip_packet = packet.find('ipv4')
     log.info(f"IPV4 Packet: {ip_packet}")
@@ -133,26 +155,23 @@ def handle_IP_request(packet, event):
         if client_ip not in client_server_map:
             server = servers[server_index]
             client_server_map[client_ip] = server
-
             # Switch to the next server (round-robin)
             server_index = (server_index + 1) % len(servers)
-
         else:
             server = client_server_map[client_ip]
 
         server_ip = server['ip']
-        server_port = server["port"]  # Use the port that is associated with the server
+        server_port = server["port"] 
 
-        # ✅ Fixed dictionary access
         client_host = next((host for host in hosts if host["ip"] == client_ip), None)
 
         if not client_host:
             log.warning(f"No matching client host for {client_ip}")
             return
 
-        client_port = client_host["port"]  # Use the port that is associated with the client
+        client_port = client_host["port"] 
 
-        # Add forward flow (client → server)
+        # Add forward flow (client to server)
         msg = of.ofp_flow_mod()
         msg.match.dl_type = 0x0800
         msg.match.nw_dst = IPAddr(virtual_ip)
@@ -161,10 +180,10 @@ def handle_IP_request(packet, event):
         msg.actions.append(of.ofp_action_nw_addr.set_dst(IPAddr(server_ip)))
         msg.actions.append(of.ofp_action_output(port=server_port))  
         
-        log.info(f"Forward flow: {client_ip} → {server_ip} via {server_port}")
+        log.info(f"Forward flow: {client_ip} to {server_ip} via {server_port}")
         event.connection.send(msg)
 
-        # Add reverse flow (server → client)
+        # Add reverse flow (server to client)
         reverse_msg = of.ofp_flow_mod()
         reverse_msg.match.dl_type = 0x0800
         reverse_msg.match.nw_src = IPAddr(server_ip)
@@ -174,7 +193,7 @@ def handle_IP_request(packet, event):
         reverse_msg.actions.append(of.ofp_action_nw_addr.set_src(IPAddr(virtual_ip)))
         reverse_msg.actions.append(of.ofp_action_output(port=client_port))  
         
-        log.info(f"Reverse flow: {server_ip} → {client_ip} via {client_port}")
+        log.info(f"Reverse flow: {server_ip} to {client_ip} via {client_port}")
         event.connection.send(reverse_msg)
 
 
